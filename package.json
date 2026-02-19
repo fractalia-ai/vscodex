@@ -1,0 +1,61 @@
+{
+  "name": "codex-oauth-chat",
+  "displayName": "Codex OAuth Chat",
+  "description": "Production-ready VSCode extension for Codex OAuth chat via local CLI",
+  "version": "0.0.1",
+  "publisher": "local",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Chat"
+  ],
+  "activationEvents": [
+    "onCommand:codexOAuthChat.open",
+    "onCommand:codexOAuthChat.login",
+    "onView:codexOAuthChat.sidebar"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codexOAuthChat",
+          "title": "Codex Chat",
+          "icon": "media/codex-chat.svg"
+        }
+      ]
+    },
+    "views": {
+      "codexOAuthChat": [
+        {
+          "id": "codexOAuthChat.sidebar",
+          "name": "Codex OAuth Chat",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "codexOAuthChat.open",
+        "title": "Focus Codex OAuth Chat"
+      },
+      {
+        "command": "codexOAuthChat.login",
+        "title": "Login with Codex"
+      },
+      {
+        "command": "codexOAuthChat.addEditorSelection",
+        "title": "Codex Chat: Add Editor Selection as Context"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs",
+    "lint": "node scripts/lint.mjs",
+    "test": "npm run build && node --test out/tests/**/*.test.js"
+  }
+}
