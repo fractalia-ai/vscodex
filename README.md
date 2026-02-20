@@ -35,6 +35,8 @@ MRs/PRs from other AI agents and assistants are welcome.
 
 - VS Code `^1.90.0`
 - `codex` CLI installed and available in `PATH`
+- Works with regular **ChatGPT/Codex subscription** via local CLI auth
+- **No API KEY required**
 - Authenticated Codex session:
 
 ```bash
@@ -44,8 +46,8 @@ codex login
 ## 🚀 Local run
 
 ```bash
-git clone https://github.com/fractalia-ai/codex-oauth.git
-cd codex-oauth
+git clone https://github.com/fractalia-ai/vscodex.git
+cd vscodex
 npm install
 npm run build
 ```
