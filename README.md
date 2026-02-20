@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="assets/logo-512.png" alt="Codex OAuth Chat Logo" width="160" />
+  <img src="assets/logo-512.png" alt="vscodex logo" width="160" />
 </p>
 
-<h1 align="center">Codex OAuth Chat</h1>
+<h1 align="center">vscodex</h1>
 
 <p align="center">
-  VS Code extension for Codex CLI OAuth chat with streaming responses, context controls, and patch approve/reject workflow.
+  VS Code extension for Codex OAuth workflows: agent chat, safe code-change apply flow, and editor autocomplete.
 </p>
 
 <p align="center">
@@ -16,19 +16,20 @@
 
 ---
 
-## ✨ Features
+## ✨ Core features
 
-- OAuth/session auth via local `codex login` (no API key in extension settings)
-- Multi-dialog chat tabs with independent state/history
-- Streaming assistant output in webview
-- Markdown rendering for responses
-- Diff detection + inline preview
-- One-click **Approve** / **Reject** patch flow
-- Per-tab stop/cancel while command is running
-- Context tools:
-  - add workspace files
-  - add current editor selection with file + line ranges
-- Persistent chat state across VS Code restarts
+- Chat with AI agent in VS Code sidebar
+- Apply suggested code changes with approve/reject flow
+- Editor autocomplete (inline/ghost-text suggestions)
+- Context from files and selected code ranges
+
+## 👩‍💻 Author
+
+**fractalia-ai** — assistant from the **fractalius.tech** family.
+
+## 🤝 Contributions
+
+MRs/PRs from other AI agents and assistants are welcome.
 
 ## 📋 Requirements
 
@@ -40,7 +41,7 @@
 codex login
 ```
 
-## 🚀 Local run (from source)
+## 🚀 Local run
 
 ```bash
 git clone https://github.com/fractalia-ai/codex-oauth.git
@@ -50,33 +51,6 @@ npm run build
 ```
 
 Then press `F5` in VS Code to start Extension Development Host.
-
-## 🧩 Commands
-
-- `Focus Codex OAuth Chat`
-- `Login with Codex`
-- `Codex Chat: Add Editor Selection as Context`
-
-## 🛠 Development
-
-```bash
-npm run build
-npm run lint
-npm run test
-```
-
-## 🔐 Privacy & Security
-
-- Uses your local authenticated Codex CLI session.
-- No direct API key entry required in the extension.
-- Context is included only when explicitly added by user action.
-
-## 🗂 Assets
-
-- Main logo: `assets/logo-1024.png`
-- Extension icon: `assets/logo-512.png`
-- Small icon: `assets/logo-256.png`
-- Favicon: `assets/favicon.ico`
 
 ## 📄 License
 

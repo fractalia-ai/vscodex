@@ -1,7 +1,7 @@
 {
-  "name": "codex-oauth-chat",
-  "displayName": "Codex OAuth Chat",
-  "description": "Production-ready VSCode extension for Codex OAuth chat via local CLI",
+  "name": "vscodex",
+  "displayName": "vscodex",
+  "description": "VS Code extension with Codex agent chat, code-change apply flow, and editor autocomplete.",
   "version": "0.1.0",
   "publisher": "fractalia-ai",
   "type": "module",
@@ -13,9 +13,11 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:codexOAuthChat.open",
     "onCommand:codexOAuthChat.login",
     "onCommand:codexOAuthChat.addEditorSelection",
+    "onCommand:codexOAuthChat.triggerInlineCompletion",
     "onView:codexOAuthChat.sidebar"
   ],
   "main": "./out/src/extension.js",
@@ -50,6 +52,10 @@
       {
         "command": "codexOAuthChat.addEditorSelection",
         "title": "Codex Chat: Add Editor Selection as Context"
+      },
+      {
+        "command": "codexOAuthChat.triggerInlineCompletion",
+        "title": "Codex Chat: Trigger Editor Autocomplete"
       }
     ],
     "menus": {
@@ -67,8 +73,108 @@
         "key": "ctrl+alt+shift+9",
         "mac": "cmd+alt+shift+9",
         "when": "editorTextFocus && editorHasSelection"
+      },
+      {
+        "command": "codexOAuthChat.triggerInlineCompletion",
+        "key": "ctrl+alt+/",
+        "mac": "cmd+alt+/",
+        "when": "editorTextFocus"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Codex OAuth Chat",
+      "properties": {
+        "codexOAuthChat.editorAutocomplete.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Turns Codex inline autocomplete on or off in the editor. Disable this if you only want chat and no ghost-text suggestions."
+        },
+        "codexOAuthChat.editorAutocomplete.minPrefixChars": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "Minimum amount of typed non-space context before a suggestion request is allowed. Increase this to reduce noise and accidental requests."
+        },
+        "codexOAuthChat.editorAutocomplete.prefixChars": {
+          "type": "number",
+          "default": 900,
+          "minimum": 64,
+          "description": "How many characters before the cursor are sent to Codex as prefix context. Larger values improve context quality but increase payload size and latency."
+        },
+        "codexOAuthChat.editorAutocomplete.suffixChars": {
+          "type": "number",
+          "default": 220,
+          "minimum": 0,
+          "description": "How many characters after the cursor are sent to Codex as suffix context. This helps Codex avoid inserting text that conflicts with upcoming code."
+        },
+        "codexOAuthChat.editorAutocomplete.debounceMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "description": "Delay in milliseconds after typing before an automatic request is sent. Increase it to reduce request frequency, decrease it for faster reactions."
+        },
+        "codexOAuthChat.editorAutocomplete.postAcceptSuppressMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "description": "Pause in milliseconds after accepting a suggestion before requesting the next one. This prevents immediate follow-up requests after a completion is applied."
+        },
+        "codexOAuthChat.editorAutocomplete.offeredSuggestionTtlMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 1000,
+          "description": "How long to remember the last offered suggestion for accept-detection logic. After this TTL, old suggestions are ignored and cleaned up."
+        },
+        "codexOAuthChat.editorAutocomplete.requestTimeoutMsAutomatic": {
+          "type": "number",
+          "default": 2500,
+          "minimum": 300,
+          "description": "Timeout in milliseconds for automatic autocomplete requests. Keep it lower to avoid stale ghost-text and to keep typing responsive."
+        },
+        "codexOAuthChat.editorAutocomplete.requestTimeoutMsManual": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 300,
+          "description": "Timeout in milliseconds for manual autocomplete trigger command. Higher values allow slower model responses when you explicitly request completion."
+        },
+        "codexOAuthChat.editorAutocomplete.maxInFlightRequests": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "description": "Maximum number of concurrent autocomplete requests. Keep it at 1 for strict ordering and lower network pressure."
+        },
+        "codexOAuthChat.editorAutocomplete.cacheSize": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "description": "Size of the main inline completion cache in entries. Set to 0 to disable cache reuse completely."
+        },
+        "codexOAuthChat.editorAutocomplete.continuationCacheSize": {
+          "type": "number",
+          "default": 120,
+          "minimum": 0,
+          "description": "Size of the continuation cache used while you keep typing after a suggestion. Set to 0 to disable continuation reuse."
+        },
+        "codexOAuthChat.editorAutocomplete.transportBackoffMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 0,
+          "description": "Backoff duration in milliseconds after transport/network failures from Codex. During backoff, automatic requests are skipped to avoid spamming retries."
+        },
+        "codexOAuthChat.logging.level": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Controls how verbose extension logs are in the \"Codex OAuth Debug\" output channel. Use \"info\" or \"warn\" to suppress noisy debug traces while keeping important records."
+        }
+      }
+    }
   },
   "scripts": {
     "build": "node scripts/build.mjs",
