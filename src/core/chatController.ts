@@ -15,7 +15,8 @@ function createTab(index) {
     outputTokens: undefined,
     tokensUsed: undefined,
     remainingLimit: 'Unknown',
-    draftDiffs: []
+    draftDiffs: [],
+    pendingCommands: []
   };
 }
 
@@ -28,6 +29,12 @@ function detectLanguage(text) {
 function appliedMessageByLanguage(language) {
   if (language === 'ru') return 'Изменения применены.';
   return 'Changes applied.';
+}
+
+function truncateCommandOutput(text, maxLength = 4000) {
+  const normalized = String(text || '');
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength)}\n...[truncated]`;
 }
 
 export class ChatController {
@@ -145,6 +152,22 @@ export class ChatController {
         tab.updatedAt = Date.now();
         this.persist(this.state);
       },
+      onCommandRequest: (requestInfo) => {
+        const command = String(requestInfo?.command || '').trim();
+        if (!command) return;
+
+        const requestId = String(requestInfo?.id || '').trim() || randomUUID();
+        if (tab.pendingCommands.some((pending) => pending.id === requestId)) return;
+
+        tab.pendingCommands.push({
+          id: requestId,
+          messageId: assistantMsg.id,
+          command,
+          createdAt: Date.now()
+        });
+        tab.updatedAt = Date.now();
+        this.persist(this.state);
+      },
       onTokenUsage: (usage) => {
         tab.tokensUsed = usage.tokensUsed;
         tab.inputTokens = usage.inputTokens;
@@ -243,5 +266,56 @@ export class ChatController {
     });
     tab.updatedAt = Date.now();
     this.persist(this.state);
+  }
+
+  locatePendingCommand(commandId) {
+    for (const tab of this.state.tabs) {
+      const pending = tab.pendingCommands.find((item) => item.id === commandId);
+      if (pending) return { tab, pending };
+    }
+    return undefined;
+  }
+
+  getPendingCommand(commandId) {
+    const located = this.locatePendingCommand(commandId);
+    if (!located) return undefined;
+    return located.pending;
+  }
+
+  cancelPendingCommand(commandId) {
+    const located = this.locatePendingCommand(commandId);
+    if (!located) return false;
+
+    located.tab.pendingCommands = located.tab.pendingCommands.filter((item) => item.id !== commandId);
+    located.tab.updatedAt = Date.now();
+    this.persist(this.state);
+    return true;
+  }
+
+  completePendingCommand(commandId, result) {
+    const located = this.locatePendingCommand(commandId);
+    if (!located) return false;
+
+    const { tab, pending } = located;
+    tab.pendingCommands = tab.pendingCommands.filter((item) => item.id !== commandId);
+
+    const stdout = truncateCommandOutput(result?.stdout || '').trim();
+    const stderr = truncateCommandOutput(result?.stderr || '').trim();
+    const output = [stdout, stderr].filter(Boolean).join('\n');
+    const exitCode = Number.isFinite(result?.exitCode) ? Number(result.exitCode) : 1;
+    const status = exitCode === 0
+      ? 'Command executed.'
+      : `Command failed with exit code ${exitCode}.`;
+    const details = output || '(no output)';
+
+    tab.history.push({
+      id: randomUUID(),
+      role: 'assistant',
+      content: `${status}\n\n\`\`\`sh\n$ ${pending.command}\n${details}\n\`\`\``,
+      createdAt: Date.now()
+    });
+    tab.updatedAt = Date.now();
+    this.persist(this.state);
+    return true;
   }
 }

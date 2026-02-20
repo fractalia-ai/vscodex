@@ -2,19 +2,20 @@
   "name": "codex-oauth-chat",
   "displayName": "Codex OAuth Chat",
   "description": "Production-ready VSCode extension for Codex OAuth chat via local CLI",
-  "version": "0.0.1",
-  "publisher": "local",
-  "private": true,
+  "version": "0.1.0",
+  "publisher": "fractalia-ai",
   "type": "module",
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
-    "Chat"
+    "Chat",
+    "Other"
   ],
   "activationEvents": [
     "onCommand:codexOAuthChat.open",
     "onCommand:codexOAuthChat.login",
+    "onCommand:codexOAuthChat.addEditorSelection",
     "onView:codexOAuthChat.sidebar"
   ],
   "main": "./out/src/extension.js",
@@ -50,6 +51,23 @@
         "command": "codexOAuthChat.addEditorSelection",
         "title": "Codex Chat: Add Editor Selection as Context"
       }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "codexOAuthChat.addEditorSelection",
+          "when": "editorTextFocus && editorHasSelection",
+          "group": "navigation@90"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "codexOAuthChat.addEditorSelection",
+        "key": "ctrl+alt+shift+9",
+        "mac": "cmd+alt+shift+9",
+        "when": "editorTextFocus && editorHasSelection"
+      }
     ]
   },
   "scripts": {
@@ -57,5 +75,22 @@
     "watch": "node scripts/build.mjs",
     "lint": "node scripts/lint.mjs",
     "test": "npm run build && node --test out/tests/**/*.test.js"
-  }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fractalia-ai/codex-oauth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fractalia-ai/codex-oauth/issues"
+  },
+  "homepage": "https://github.com/fractalia-ai/codex-oauth#readme",
+  "keywords": [
+    "codex",
+    "oauth",
+    "chat",
+    "vscode-extension",
+    "ai",
+    "cli"
+  ]
 }

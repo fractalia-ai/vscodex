@@ -96,6 +96,16 @@ function extractAssistantFinalText(event, type) {
   return '';
 }
 
+function extractCommandRequest(event, type) {
+  if (type !== 'item.started') return undefined;
+  const itemType = typeof event?.item?.type === 'string' ? event.item.type.toLowerCase() : '';
+  if (itemType !== 'command_execution') return undefined;
+  const command = typeof event?.item?.command === 'string' ? event.item.command.trim() : '';
+  if (!command) return undefined;
+  const id = typeof event?.item?.id === 'string' ? event.item.id : undefined;
+  return { id, command };
+}
+
 export function parseJsonEventLine(line) {
   const event = parseJsonLoose(line);
   if (!event) {
@@ -106,6 +116,7 @@ export function parseJsonEventLine(line) {
       tokensUsed: undefined,
       inputTokens: undefined,
       outputTokens: undefined,
+      commandRequest: undefined,
       error: undefined
     };
   }
@@ -139,6 +150,7 @@ export function parseJsonEventLine(line) {
   }
 
   const finalText = extractAssistantFinalText(event, type);
+  const commandRequest = extractCommandRequest(event, type);
 
   let tokensUsed;
   let inputTokens;
@@ -166,7 +178,7 @@ export function parseJsonEventLine(line) {
     error = event.error.message;
   }
 
-  return { isJson: true, textDelta, finalText, tokensUsed, inputTokens, outputTokens, error };
+  return { isJson: true, textDelta, finalText, tokensUsed, inputTokens, outputTokens, commandRequest, error };
 }
 
 function collectOutput(child, onDone) {
@@ -230,6 +242,8 @@ export class CodexCliService {
     let stderrText = '';
     let plainStdoutText = '';
     const jsonErrors = [];
+    const seenCommandRequests = new Set();
+    let commandApprovalPending = false;
     let streamedTextSeen = false;
     let finalTextEmitted = false;
     let jsonEventSeen = false;
@@ -260,6 +274,28 @@ export class CodexCliService {
       }
 
       jsonEventSeen = true;
+
+      if (parsed.commandRequest) {
+        const requestId = parsed.commandRequest.id || `cmd-${tabId}-${seenCommandRequests.size + 1}`;
+        const dedupeKey = `${requestId}:${parsed.commandRequest.command}`;
+        if (!seenCommandRequests.has(dedupeKey)) {
+          seenCommandRequests.add(dedupeKey);
+          callbacks.onCommandRequest?.({
+            id: requestId,
+            command: parsed.commandRequest.command
+          });
+          if (!commandApprovalPending) {
+            commandApprovalPending = true;
+            // Stop current codex turn immediately so the command is not auto-executed
+            // and no additional command output is streamed into the assistant bubble.
+            child.kill('SIGINT');
+          }
+        }
+      }
+
+      if (commandApprovalPending) {
+        return;
+      }
 
       if (parsed.textDelta) {
         streamedTextSeen = true;
@@ -335,5 +371,44 @@ export class CodexCliService {
     const session = this.sessions.get(tabId);
     if (!session) return;
     session.process.kill('SIGINT');
+  }
+
+  async executeApprovedCommand(command, options = {}) {
+    const workspaceRoot = options.workspaceRoot;
+    const shell = process.env.SHELL || '/bin/zsh';
+
+    return await new Promise((resolve) => {
+      let stdout = '';
+      let stderr = '';
+
+      const child = spawn(shell, ['-lc', command], {
+        cwd: workspaceRoot || process.cwd(),
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk.toString('utf8');
+      });
+
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk.toString('utf8');
+      });
+
+      child.on('close', (code) => {
+        resolve({
+          exitCode: typeof code === 'number' ? code : 1,
+          stdout,
+          stderr
+        });
+      });
+
+      child.on('error', (err) => {
+        resolve({
+          exitCode: 1,
+          stdout,
+          stderr: `${stderr}\n${err.message}`.trim()
+        });
+      });
+    });
   }
 }

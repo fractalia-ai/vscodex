@@ -18,7 +18,8 @@ export function createInitialState() {
         outputTokens: undefined,
         tokensUsed: undefined,
         remainingLimit: 'Unknown',
-        draftDiffs: []
+        draftDiffs: [],
+        pendingCommands: []
       }
     ]
   };
@@ -33,6 +34,14 @@ export function ensureState(state) {
   }
   if (!Object.prototype.hasOwnProperty.call(state, 'isLoggedIn')) {
     state.isLoggedIn = undefined;
+  }
+  for (const tab of state.tabs) {
+    if (!Array.isArray(tab.draftDiffs)) {
+      tab.draftDiffs = [];
+    }
+    if (!Array.isArray(tab.pendingCommands)) {
+      tab.pendingCommands = [];
+    }
   }
   return state;
 }

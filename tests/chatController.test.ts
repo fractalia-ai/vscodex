@@ -77,6 +77,54 @@ test('Token usage updates input and output token counters', async () => {
   assert.equal(tab.outputTokens, 16);
 });
 
+test('Command execution event creates pending Execute/Cancel request', async () => {
+  const codex = new FakeCodex();
+  const controller = new ChatController(createInitialState(), () => {}, codex);
+
+  await controller.sendUserMessage('inspect project');
+  codex.callbacks.onCommandRequest({
+    id: 'cmd-1',
+    command: '/bin/zsh -lc "ls -la"'
+  });
+
+  const tab = controller.snapshot().tabs[0];
+  const assistant = tab.history[1];
+  assert.equal(tab.pendingCommands.length, 1);
+  assert.equal(tab.pendingCommands[0].id, 'cmd-1');
+  assert.equal(tab.pendingCommands[0].messageId, assistant.id);
+  assert.equal(tab.pendingCommands[0].command, '/bin/zsh -lc "ls -la"');
+
+  const canceled = controller.cancelPendingCommand('cmd-1');
+  assert.equal(canceled, true);
+  assert.equal(controller.snapshot().tabs[0].pendingCommands.length, 0);
+});
+
+test('Execute approved command clears pending request and appends result message', async () => {
+  const codex = new FakeCodex();
+  const controller = new ChatController(createInitialState(), () => {}, codex);
+
+  await controller.sendUserMessage('inspect project');
+  codex.callbacks.onCommandRequest({
+    id: 'cmd-2',
+    command: '/bin/zsh -lc "pwd"'
+  });
+
+  const completed = controller.completePendingCommand('cmd-2', {
+    exitCode: 0,
+    stdout: '/tmp\n',
+    stderr: ''
+  });
+
+  assert.equal(completed, true);
+  const tab = controller.snapshot().tabs[0];
+  assert.equal(tab.pendingCommands.length, 0);
+  const last = tab.history[tab.history.length - 1];
+  assert.equal(last.role, 'assistant');
+  assert.match(last.content, /Command executed\./);
+  assert.match(last.content, /\$ \/bin\/zsh -lc "pwd"/);
+  assert.match(last.content, /\/tmp/);
+});
+
 test('Codex response streams and diff output creates draft for Approve/Reject controls', async () => {
   const codex = new FakeCodex();
   const controller = new ChatController(createInitialState(), () => {}, codex);

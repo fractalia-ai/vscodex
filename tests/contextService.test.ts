@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { ContextService } from '../src/services/contextService.js';
 import { ChatController } from '../src/core/chatController.js';
 import { createInitialState } from '../src/core/chatStore.js';
@@ -72,4 +73,46 @@ test('Adding selected editor code includes filename and line numbers', () => {
   assert.ok(item);
   assert.equal(item.source, 'src/main.ts');
   assert.equal(item.range, '5-7');
+});
+
+test('Context picker excludes files ignored by .gitignore', async (t) => {
+  const gitCheck = spawnSync('git', ['--version'], { stdio: 'ignore' });
+  if (gitCheck.status !== 0) {
+    t.skip('git is not available');
+    return;
+  }
+
+  const dir = mkdtempSync(`${tmpdir()}/codex-oauth-gitignore-`);
+  spawnSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+
+  writeFileSync(`${dir}/visible.ts`, 'export const ok = true;\n', 'utf8');
+  writeFileSync(`${dir}/ignored.log`, 'secret\n', 'utf8');
+  mkdirSync(`${dir}/ignored-dir`, { recursive: true });
+  writeFileSync(`${dir}/ignored-dir/private.ts`, 'export const hidden = 1;\n', 'utf8');
+  writeFileSync(`${dir}/.gitignore`, 'ignored.log\nignored-dir/\n', 'utf8');
+
+  let quickPickItems = [];
+  const fakeVscode = {
+    workspace: {
+      findFiles: async () => {
+        throw new Error('fallback findFiles should not be used when git list is available');
+      },
+      asRelativePath: (uri) => uri.path
+    },
+    window: {
+      showQuickPick: async (items) => {
+        quickPickItems = items;
+        return items;
+      }
+    }
+  };
+
+  const service = new ContextService();
+  const selected = await service.pickWorkspaceFiles(fakeVscode, dir);
+  const labels = quickPickItems.map((item) => item.label);
+
+  assert.equal(labels.includes('visible.ts'), true);
+  assert.equal(labels.includes('ignored.log'), false);
+  assert.equal(labels.includes('ignored-dir/private.ts'), false);
+  assert.equal(selected.includes('visible.ts'), true);
 });

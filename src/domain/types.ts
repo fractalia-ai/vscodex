@@ -25,6 +25,13 @@ export interface DiffDraft {
   createdAt: number;
 }
 
+export interface PendingCommand {
+  id: string;
+  messageId: string;
+  command: string;
+  createdAt: number;
+}
+
 export interface DialogTab {
   id: string;
   title: string;
@@ -38,6 +45,7 @@ export interface DialogTab {
   tokensUsed?: number;
   remainingLimit?: string;
   draftDiffs: DiffDraft[];
+  pendingCommands: PendingCommand[];
 }
 
 export interface PersistedState {

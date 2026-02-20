@@ -102,7 +102,7 @@ export async function activate(context) {
         return;
       }
 
-      const files = await contextService.pickWorkspaceFiles(vscode);
+      const files = await contextService.pickWorkspaceFiles(vscode, root);
       for (const rel of files) {
         try {
           controller.addContextItem(contextService.buildFileContext(root, rel));
@@ -156,6 +156,24 @@ export async function activate(context) {
 
     if (msg.type === 'rejectDiff') {
       controller.rejectDiff(msg.messageId);
+      postState();
+    }
+
+    if (msg.type === 'executeCommand') {
+      const pending = controller.getPendingCommand(msg.commandId);
+      if (!pending) {
+        vscode.window.showWarningMessage('No pending command found.');
+        return;
+      }
+
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const result = await codex.executeApprovedCommand(pending.command, { workspaceRoot });
+      controller.completePendingCommand(msg.commandId, result);
+      postState();
+    }
+
+    if (msg.type === 'cancelCommand') {
+      controller.cancelPendingCommand(msg.commandId);
       postState();
     }
   };

@@ -21,7 +21,17 @@
   }
 
   function renderMarkdown(md) {
-    const safe = escapeHtml(md);
+    const fencedBlocks = [];
+    const withFencedPlaceholders = md.replace(/```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+      const token = `@@CODEBLOCK_${fencedBlocks.length}@@`;
+      fencedBlocks.push({
+        lang: (lang || '').trim(),
+        code: code || ''
+      });
+      return token;
+    });
+
+    const safe = escapeHtml(withFencedPlaceholders);
     const lines = safe.split('\n').map((line) => {
       if (line.startsWith('### ')) return `<h3>${line.slice(4)}</h3>`;
       if (line.startsWith('## ')) return `<h2>${line.slice(3)}</h2>`;
@@ -29,13 +39,24 @@
       return line;
     });
 
-    return lines
+    let rendered = lines
       .join('\n')
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
       .replace(/\n/g, '<br/>');
+
+    rendered = rendered.replace(/@@CODEBLOCK_(\d+)@@/g, (_, rawIndex) => {
+      const block = fencedBlocks[Number(rawIndex)];
+      if (!block) return '';
+
+      const langClass = block.lang ? ` class="language-${escapeHtml(block.lang)}"` : '';
+      const code = escapeHtml(block.code.replace(/\n$/, ''));
+      return `<pre class="md-code-block"><code${langClass}>${code}</code></pre>`;
+    });
+
+    return rendered;
   }
 
   function splitMessage(text) {
@@ -83,8 +104,56 @@
     return card;
   }
 
+  function renderCommand(text) {
+    const card = el('div', 'command-card');
+    card.appendChild(el('div', 'command-title', 'Command Execution'));
+    const pre = el('pre', 'command-block');
+    pre.textContent = text;
+    card.appendChild(pre);
+    return card;
+  }
+
   function activeTab() {
     return state.tabs.find((t) => t.id === state.activeTabId) || state.tabs[0];
+  }
+
+  function extensionFromSource(source) {
+    const normalized = String(source || '').split(/[\\/]/).pop() || '';
+    const lastDot = normalized.lastIndexOf('.');
+    if (lastDot <= 0 || lastDot === normalized.length - 1) return '';
+    return normalized.slice(lastDot + 1).toLowerCase();
+  }
+
+  function fileIconMeta(source) {
+    const ext = extensionFromSource(source);
+    const byExt = {
+      ts: { label: 'TS', color: '#3c85d9' },
+      tsx: { label: 'TS', color: '#3c85d9' },
+      js: { label: 'JS', color: '#d8b548' },
+      jsx: { label: 'JS', color: '#d8b548' },
+      py: { label: 'PY', color: '#5aa8ff' },
+      md: { label: 'MD', color: '#59c18a' },
+      json: { label: '{}', color: '#dca85f' },
+      yml: { label: 'YML', color: '#d27676' },
+      yaml: { label: 'YML', color: '#d27676' },
+      css: { label: 'CSS', color: '#6ea8ff' },
+      scss: { label: 'SC', color: '#d27ab0' },
+      html: { label: 'HT', color: '#e08d66' },
+      sql: { label: 'SQL', color: '#8b8bf0' }
+    };
+    return byExt[ext] || { label: ext ? ext.slice(0, 3).toUpperCase() : 'TXT', color: '#8f97ab' };
+  }
+
+  function renderContextBadgeIcon(source) {
+    const meta = fileIconMeta(source);
+    const icon = el('span', 'badge-file-icon');
+    icon.style.setProperty('--badge-file-accent', meta.color);
+    icon.title = source || 'file';
+
+    const fold = el('span', 'badge-file-fold');
+    const label = el('span', 'badge-file-label', meta.label);
+    icon.append(fold, label);
+    return icon;
   }
 
   function shouldShowLoginButton() {
@@ -199,15 +268,16 @@
     if (current) {
       for (const msg of current.history) {
         const bubble = el('div', `bubble ${msg.role === 'user' ? 'user' : 'assistant'}`);
+        const pendingCommands = (current?.pendingCommands || []).filter((cmd) => cmd.messageId === msg.id);
+        const content = msg.content.trim();
 
-        if (msg.role === 'assistant' && !msg.content.trim() && msg.isStreaming) {
+        if (msg.role === 'assistant' && !content && msg.isStreaming && pendingCommands.length === 0) {
           bubble.appendChild(el('div', 'streaming-dot', 'Thinking...'));
           messages.appendChild(bubble);
           continue;
         }
 
-        const content = msg.content.trim();
-        if (msg.role === 'assistant' && !content && !msg.isStreaming) {
+        if (msg.role === 'assistant' && !content && !msg.isStreaming && pendingCommands.length === 0) {
           bubble.appendChild(el('div', 'streaming-dot', 'No response from Codex'));
           messages.appendChild(bubble);
           continue;
@@ -236,6 +306,19 @@
           }
         }
 
+        if (msg.role === 'assistant') {
+          for (const pending of pendingCommands) {
+            bubble.appendChild(renderCommand(pending.command));
+            const controls = el('div', 'diff-controls');
+            const execute = el('button', 'btn btn-execute', 'Execute');
+            const cancel = el('button', 'btn btn-cancel', 'Cancel');
+            execute.onclick = () => vscode.postMessage({ type: 'executeCommand', commandId: pending.id });
+            cancel.onclick = () => vscode.postMessage({ type: 'cancelCommand', commandId: pending.id });
+            controls.append(execute, cancel);
+            bubble.appendChild(controls);
+          }
+        }
+
         if (bubble.childElementCount > 0) messages.appendChild(bubble);
       }
     }
@@ -255,14 +338,13 @@
     const contextBar = el('div', 'context-bar');
     const pickFiles = el('button', 'btn btn-ghost', '+ Context');
     pickFiles.onclick = () => vscode.postMessage({ type: 'pickContextFiles' });
-    const addSel = el('button', 'btn btn-ghost', 'Add selected code');
-    addSel.onclick = () => vscode.postMessage({ type: 'addEditorSelection' });
-    contextBar.append(pickFiles, addSel);
+    contextBar.append(pickFiles);
 
     const badges = el('div', 'badges');
     for (const item of current?.contextItems || []) {
       const badge = el('div', 'badge');
-      const label = `${item.icon} ${item.source}${item.range ? ':' + item.range : ''}`;
+      const label = `${item.source}${item.range ? ':' + item.range : ''}`;
+      badge.appendChild(renderContextBadgeIcon(item.source));
       badge.appendChild(el('span', 'badge-text', label));
       const remove = el('button', 'badge-remove', 'x');
       remove.onclick = () => vscode.postMessage({ type: 'removeContext', contextId: item.id });

@@ -102,6 +102,20 @@ test('JSON event parser ignores command_execution item.completed output', () => 
   );
   assert.equal(parsed.isJson, true);
   assert.equal(parsed.textDelta, '');
+  assert.equal(parsed.finalText, '');
+});
+
+test('JSON event parser extracts command execution request from item.started', () => {
+  const parsed = parseJsonEventLine(
+    '{"type":"item.started","item":{"id":"item_9","type":"command_execution","command":"/bin/zsh -lc \\"ls -la\\"","status":"in_progress"}}'
+  );
+  assert.equal(parsed.isJson, true);
+  assert.equal(parsed.textDelta, '');
+  assert.equal(parsed.finalText, '');
+  assert.deepEqual(parsed.commandRequest, {
+    id: 'item_9',
+    command: '/bin/zsh -lc "ls -la"'
+  });
 });
 
 test('JSON event parser extracts usage from turn.completed format', () => {

@@ -1,47 +1,85 @@
-# Codex OAuth Chat VSCode Extension
+# Codex OAuth Chat
 
-A VSCode extension that provides a multi-dialog chat interface powered by local `codex` CLI OAuth/session auth.
+A VS Code extension that gives you a clean chat UI backed by local `codex` CLI authentication (`codex login`) — no API key wiring.
 
-## Key Features
+## Highlights
 
-- OAuth/session auth only (`codex login`), no API keys.
-- `Login with Codex` button and command triggers login in integrated terminal.
-- Multi-dialog tabs with independent history/context per tab.
-- Workspace persistence (`workspaceState`) across VSCode restarts.
-- Streaming assistant output from `codex` stdout/stderr.
-- Bubble chat UI with markdown rendering.
-- Git-style diff detection and inline diff highlighting.
-- Diff actions: `Approve` applies patch to workspace files, `Reject` discards draft patch.
-- Per-active-tab stop button while command is running.
-- Bottom blurred status bar:
-  - Remaining Codex limit (or `Unknown`)
-  - Tokens used for current command (or `N/A`)
-- Context picker for project files + current editor selection (with file and line range).
-- Context content is capped to 1024 chars with truncation indicator.
+- OAuth/session auth via local Codex CLI
+- Multi-chat dialogs with independent history/context
+- Streaming assistant output from CLI
+- Markdown chat rendering
+- Diff detection with inline preview
+- One-click **Approve** / **Reject** for generated patches
+- Per-tab stop/cancel while a command is running
+- Context tools:
+  - Add files from workspace
+  - Add current editor selection (with file + line range)
+- Session persistence across VS Code restarts
 
 ## Requirements
 
-- Install and authenticate Codex CLI locally.
-- From VSCode terminal: `codex login`
+- VS Code `^1.90.0`
+- Installed `codex` CLI in your shell `PATH`
+- Authorized local session:
+
+```bash
+codex login
+```
+
+## Installation (from source)
+
+1. Clone this repository
+2. Install dependencies
+3. Build extension
+4. Launch Extension Development Host
+
+```bash
+npm install
+npm run build
+```
+
+Then press `F5` in VS Code.
+
+## Commands
+
+- `Focus Codex OAuth Chat`
+- `Login with Codex`
+- `Codex Chat: Add Editor Selection as Context`
+
+## How patch approval works
+
+When Codex returns a patch-like response, the extension parses file changes and shows an inline diff preview.
+
+- **Approve**: applies patch to workspace files
+- **Reject**: discards generated patch draft
 
 ## Development
 
 ```bash
 npm run build
-npm run test
 npm run lint
+npm run test
 ```
 
-## Run Extension
+## Project structure
 
-1. Open this folder in VSCode.
-2. Run `npm run build`.
-3. Press `F5` to launch Extension Development Host.
-4. Run command `Open Codex OAuth Chat`.
-5. Click `Login with Codex` in the chat UI (runs `codex login` in integrated terminal).
+- `src/` — extension source
+- `media/` — webview assets
+- `tests/` — test suite
+- `scripts/` — build/lint scripts
 
-## Notes on CLI
+## Privacy & security notes
 
-- This extension uses local `codex` CLI process streaming.
-- Remaining limit and token usage are parsed from stream text if present.
-- If CLI output does not include those fields, values remain `Unknown` / `N/A`.
+- The extension uses your locally authenticated Codex CLI session.
+- No API key is required by this extension.
+- Context snippets can include file content and selections you explicitly add.
+
+## Roadmap
+
+- Better token/limit telemetry
+- Improved patch parser for edge diff formats
+- Optional repo-level context presets
+
+## License
+
+MIT

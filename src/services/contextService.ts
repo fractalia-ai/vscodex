@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
 
 const CONTEXT_MAX = 1024;
 
@@ -23,9 +24,51 @@ function iconFromFilename(file) {
 }
 
 export class ContextService {
-  async pickWorkspaceFiles(vscode) {
-    const files = await vscode.workspace.findFiles('**/*', '**/{node_modules,.git,out}/**', 2000);
-    const picks = files.map((f) => ({ label: vscode.workspace.asRelativePath(f), uri: f }));
+  async listGitVisibleFiles(workspaceRoot) {
+    return await new Promise((resolve) => {
+      const child = spawn(
+        'git',
+        ['-C', workspaceRoot, 'ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+        { stdio: ['ignore', 'pipe', 'ignore'] }
+      );
+
+      let stdout = '';
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk.toString('utf8');
+      });
+
+      child.on('error', () => {
+        resolve(undefined);
+      });
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          resolve(undefined);
+          return;
+        }
+
+        const files = [...new Set(stdout.split('\0').filter(Boolean))];
+        resolve(files);
+      });
+    });
+  }
+
+  async pickWorkspaceFiles(vscode, workspaceRoot) {
+    let relativeFiles;
+
+    if (workspaceRoot) {
+      const gitVisibleFiles = await this.listGitVisibleFiles(workspaceRoot);
+      if (gitVisibleFiles && gitVisibleFiles.length > 0) {
+        relativeFiles = gitVisibleFiles.slice(0, 2000);
+      }
+    }
+
+    if (!relativeFiles) {
+      const files = await vscode.workspace.findFiles('**/*', '**/{node_modules,.git,out}/**', 2000);
+      relativeFiles = files.map((f) => vscode.workspace.asRelativePath(f));
+    }
+
+    const picks = relativeFiles.map((relativePath) => ({ label: relativePath }));
     const selected = await vscode.window.showQuickPick(picks, {
       canPickMany: true,
       matchOnDescription: true,
