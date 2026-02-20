@@ -92,5 +92,6 @@
     "vscode-extension",
     "ai",
     "cli"
-  ]
+  ],
+  "icon": "assets/logo-512.png"
 }
