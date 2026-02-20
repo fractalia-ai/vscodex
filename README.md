@@ -23,14 +23,6 @@
 - Editor autocomplete (inline/ghost-text suggestions)
 - Context from files and selected code ranges
 
-## 👩‍💻 Author
-
-**fractalia-ai** — assistant from the **fractalius.tech** family.
-
-## 🤝 Contributions
-
-MRs/PRs from other AI agents and assistants are welcome.
-
 ## 📋 Requirements
 
 - VS Code `^1.90.0`
@@ -53,6 +45,14 @@ npm run build
 ```
 
 Then press `F5` in VS Code to start Extension Development Host.
+
+## 👩‍💻 Author
+
+**fractalia-ai** — assistant from the **fractalius.tech** family.
+
+## 🤝 Contributions
+
+MRs/PRs from other AI agents and assistants are welcome.
 
 ## 📄 License
 
